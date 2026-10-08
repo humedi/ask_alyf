@@ -161,6 +161,9 @@ import "./field_agent";
 			this.boundResizeMove = (event) => this.resizePanel(event);
 			this.boundResizeEnd = (event) => this.stopPanelResize(event);
 			this.boundDocumentClick = (event) => this.onDocumentClick(event);
+			this.dockDrag = null;
+			this.boundDockMove = (event) => this.moveDock(event);
+			this.boundDockEnd = (event) => this.endDock(event);
 			this.deferredChartPaints = [];
 			this.messageEntries = new Map();
 			this.activeFrappeCharts = new Map();
@@ -1076,6 +1079,7 @@ import "./field_agent";
 			this.updateVoiceInputHint();
 			this.autoResizeInput();
 			this.setActiveTab(this.state.activeTab);
+			this.bindDockDrag();
 		}
 
 		bindRealtime() {
@@ -2111,6 +2115,121 @@ import "./field_agent";
 			window.addEventListener("pointercancel", this.boundResizeEnd);
 		}
 
+		dockAnchors(width, height) {
+			const margin = 24;
+			const left = margin;
+			const right = window.innerWidth - margin - width;
+			const top = margin;
+			const bottom = window.innerHeight - margin - height;
+			return [
+				{ left, top, dockLeft: true, dockTop: true },
+				{ left, top: bottom, dockLeft: true, dockTop: false },
+				{ left: right, top, dockLeft: false, dockTop: true },
+				{ left: right, top: bottom, dockLeft: false, dockTop: false },
+			];
+		}
+
+		nearestDock() {
+			const rect = this.root.getBoundingClientRect();
+			const anchors = this.dockAnchors(rect.width, rect.height);
+			let best = anchors[0];
+			let bestDist = Infinity;
+			for (const anchor of anchors) {
+				const dist = Math.hypot(rect.left - anchor.left, rect.top - anchor.top);
+				if (dist < bestDist) {
+					best = anchor;
+					bestDist = dist;
+				}
+			}
+			return { anchors, best };
+		}
+
+		bindDockDrag() {
+			this.bubbleEl.addEventListener("pointerdown", (event) => this.startDockDrag(event));
+			this.root.querySelector(".ask_alyf-header").addEventListener("pointerdown", (event) => {
+				if (event.target.closest("button, a")) {
+					return;
+				}
+				this.startDockDrag(event);
+			});
+		}
+
+		startDockDrag(event) {
+			if (event.button !== undefined && event.button !== 0) {
+				return;
+			}
+
+			const rect = this.root.getBoundingClientRect();
+			this.dockDrag = {
+				pointerId: event.pointerId,
+				startX: event.clientX,
+				startY: event.clientY,
+				originLeft: rect.left,
+				originTop: rect.top,
+				moved: false,
+			};
+			event.currentTarget.setPointerCapture?.(event.pointerId);
+			window.addEventListener("pointermove", this.boundDockMove);
+			window.addEventListener("pointerup", this.boundDockEnd);
+			window.addEventListener("pointercancel", this.boundDockEnd);
+		}
+
+		moveDock(event) {
+			if (!this.dockDrag || event.pointerId !== this.dockDrag.pointerId) {
+				return;
+			}
+
+			const dx = event.clientX - this.dockDrag.startX;
+			const dy = event.clientY - this.dockDrag.startY;
+			if (!this.dockDrag.moved && Math.hypot(dx, dy) < 4) {
+				return;
+			}
+
+			event.preventDefault();
+			this.dockDrag.moved = true;
+			const margin = 24;
+			const width = this.root.offsetWidth;
+			const height = this.root.offsetHeight;
+			const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+			const maxTop = Math.max(margin, window.innerHeight - height - margin);
+			this.root.classList.add("ask_alyf-dragging");
+			this.root.style.left = `${this.clamp(this.dockDrag.originLeft + dx, margin, maxLeft)}px`;
+			this.root.style.top = `${this.clamp(this.dockDrag.originTop + dy, margin, maxTop)}px`;
+		}
+
+		endDock(event) {
+			if (!this.dockDrag) {
+				return;
+			}
+			if (event?.pointerId !== undefined && event.pointerId !== this.dockDrag.pointerId) {
+				return;
+			}
+
+			const moved = this.dockDrag.moved;
+			this.dockDrag = null;
+			window.removeEventListener("pointermove", this.boundDockMove);
+			window.removeEventListener("pointerup", this.boundDockEnd);
+			window.removeEventListener("pointercancel", this.boundDockEnd);
+
+			if (!moved) {
+				return;
+			}
+
+			const { best } = this.nearestDock();
+			this.root.classList.remove("ask_alyf-dragging");
+			this.root.style.left = "";
+			this.root.style.top = "";
+			this.root.classList.toggle("ask_alyf-dock-left", best.dockLeft);
+			this.root.classList.toggle("ask_alyf-dock-top", best.dockTop);
+
+			const suppressClick = (clickEvent) => {
+				clickEvent.preventDefault();
+				clickEvent.stopPropagation();
+				this.bubbleEl.removeEventListener("click", suppressClick, true);
+			};
+			this.bubbleEl.addEventListener("click", suppressClick, true);
+		}
+
 		resizePanel(event) {
 			if (!this.resizeState) {
 				return;
@@ -2121,8 +2240,14 @@ import "./field_agent";
 			}
 
 			event.preventDefault();
-			const deltaX = this.resizeState.startX - event.clientX;
-			const deltaY = this.resizeState.startY - event.clientY;
+			const dockLeft = this.root.classList.contains("ask_alyf-dock-left");
+			const dockTop = this.root.classList.contains("ask_alyf-dock-top");
+			const deltaX = dockLeft
+				? event.clientX - this.resizeState.startX
+				: this.resizeState.startX - event.clientX;
+			const deltaY = dockTop
+				? event.clientY - this.resizeState.startY
+				: this.resizeState.startY - event.clientY;
 			const nextWidth = this.clamp(
 				this.resizeState.startWidth + deltaX,
 				this.resizeState.minWidth,

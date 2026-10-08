@@ -261,6 +261,22 @@
 	font-family: var(--font-stack);
 }
 
+.ask_alyf-root.ask_alyf-dock-top {
+	top: 1.5rem;
+	bottom: auto;
+}
+
+.ask_alyf-root.ask_alyf-dock-left {
+	left: 1.5rem;
+	right: auto;
+}
+
+.ask_alyf-root.ask_alyf-dragging {
+	right: auto;
+	bottom: auto;
+	cursor: grabbing;
+}
+
 .ask_alyf-hidden {
 	display: none !important;
 }
@@ -296,6 +312,7 @@
 	height: 1.7rem;
 	object-fit: contain;
 	display: block;
+	pointer-events: none;
 }
 
 .ask_alyf-panel {
@@ -305,7 +322,6 @@
 	min-height: min(24rem, calc(100vh - 2rem));
 	max-width: calc(100vw - 2rem);
 	max-height: calc(100vh - 2rem);
-	margin-top: 0.75rem;
 	position: relative;
 	display: flex;
 	flex-direction: column;
@@ -334,16 +350,47 @@
 
 .ask_alyf-resize-handle {
 	position: absolute;
-	top: 0.5rem;
-	left: 0.5rem;
 	width: 0.95rem;
 	height: 0.95rem;
-	border-top: 2px solid var(--border-color);
-	border-left: 2px solid var(--border-color);
-	border-top-left-radius: 0.3rem;
-	cursor: nwse-resize;
+	border: 0 solid var(--border-color);
 	touch-action: none;
 	z-index: 2;
+}
+
+.ask_alyf-root:not(.ask_alyf-dock-left):not(.ask_alyf-dock-top) .ask_alyf-resize-handle {
+	top: 0.5rem;
+	left: 0.5rem;
+	border-top-width: 2px;
+	border-left-width: 2px;
+	border-top-left-radius: 0.3rem;
+	cursor: nwse-resize;
+}
+
+.ask_alyf-root.ask_alyf-dock-top:not(.ask_alyf-dock-left) .ask_alyf-resize-handle {
+	bottom: 0.5rem;
+	left: 0.5rem;
+	border-bottom-width: 2px;
+	border-left-width: 2px;
+	border-bottom-left-radius: 0.3rem;
+	cursor: nesw-resize;
+}
+
+.ask_alyf-root.ask_alyf-dock-left:not(.ask_alyf-dock-top) .ask_alyf-resize-handle {
+	top: 0.5rem;
+	right: 0.5rem;
+	border-top-width: 2px;
+	border-right-width: 2px;
+	border-top-right-radius: 0.3rem;
+	cursor: nesw-resize;
+}
+
+.ask_alyf-root.ask_alyf-dock-left.ask_alyf-dock-top .ask_alyf-resize-handle {
+	bottom: 0.5rem;
+	right: 0.5rem;
+	border-bottom-width: 2px;
+	border-right-width: 2px;
+	border-bottom-right-radius: 0.3rem;
+	cursor: nwse-resize;
 }
 
 .ask_alyf-resize-handle:hover {
@@ -371,6 +418,12 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	cursor: grab;
+}
+
+.ask_alyf-bubble,
+.ask_alyf-header {
+	touch-action: none;
 }
 
 .ask_alyf-title {
